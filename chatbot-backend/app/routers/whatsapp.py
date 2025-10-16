@@ -93,7 +93,8 @@ async def whatsapp_webhook(
                         profile = contacts[0].get("profile", {})
                         sender_name = profile.get("name")
                     
-                    logger.info(f"Processing message from {sender_phone} ({sender_name}): {message_text}")
+                    logger.info(f"📱 Webhook - Message from: {sender_phone} (Name: {sender_name})")
+                    logger.info(f"📝 Message content: {message_text}")
                     
                     # Get or create user
                     user = await get_or_create_user(session, sender_phone, sender_name)
@@ -136,7 +137,15 @@ async def whatsapp_webhook(
                     logger.info(f"Saved AI response (ID: {assistant_message.id})")
                     
                     # Send response back to user
-                    await whatsapp_service.send_message(sender_phone, ai_response)
+                    try:
+                        logger.info(f"🚀 Attempting to send WhatsApp response")
+                        logger.info(f"   → To number: {sender_phone}")
+                        logger.info(f"   → Response preview: {ai_response[:50]}...")
+                        send_result = await whatsapp_service.send_message(sender_phone, ai_response)
+                        logger.info(f"✅ WhatsApp response sent successfully: {send_result}")
+                    except Exception as send_error:
+                        logger.error(f"❌ Failed to send WhatsApp response: {str(send_error)}", exc_info=True)
+                        # Don't raise - we already saved the message, just log the error
         
         return {"status": "success"}
         

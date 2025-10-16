@@ -26,8 +26,19 @@ class AIService:
     async def _groq_call(self, message: str, history: List[Dict]) -> str:
         """Groq API implementation using Chat Completions (FREE tier with Llama 3.3 70B)."""
         try:
+            # Validate API key
+            if not self.groq_key:
+                logger.error("GROQ_API_KEY is not set!")
+                return "Sorry, the AI service is not properly configured. Please check the API key."
+            
             # Prepare messages for OpenAI API
             messages = []
+            
+            # Add system prompt first
+            messages.append({
+                "role": "system",
+                "content": "You are a helpful AI assistant on WhatsApp. Be friendly, concise, and helpful."
+            })
             
             # Add conversation history
             for msg in history[-10:]:  # Keep last 10 messages for context
@@ -42,14 +53,7 @@ class AIService:
                 "content": message
             })
             
-            # Add system prompt if no history
-            if not history:
-                messages.insert(0, {
-                    "role": "system",
-                    "content": "You are a helpful AI assistant on WhatsApp. Be friendly, concise, and helpful."
-                })
-            
-            logger.info(f"Calling Groq API with {len(messages)} messages")
+            logger.info(f"Calling Groq API with {len(messages)} messages, model: llama-3.3-70b-versatile")
             
             # Make API call to Groq (OpenAI-compatible API, FREE tier)
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -71,19 +75,32 @@ class AIService:
                 result = response.json()
                 
                 ai_response = result["choices"][0]["message"]["content"]
-                logger.info(f"Groq API response received: {ai_response[:100]}...")
+                logger.info(f"Groq API response received successfully: {ai_response[:100]}...")
                 
                 return ai_response
                 
         except httpx.HTTPStatusError as e:
-            logger.error(f"Groq API HTTP error: {e.response.status_code} - {e.response.text}")
-            return "Sorry, I'm having trouble connecting to my AI service. Please try again later."
+            error_detail = ""
+            try:
+                error_detail = e.response.json()
+                logger.error(f"Groq API HTTP error: {e.response.status_code} - {error_detail}")
+            except:
+                error_detail = e.response.text
+                logger.error(f"Groq API HTTP error: {e.response.status_code} - {error_detail}")
+            
+            if e.response.status_code == 401:
+                return "Sorry, the AI service authentication failed. Please check the API key configuration."
+            elif e.response.status_code == 429:
+                return "Sorry, the AI service is rate-limited. Please try again in a moment."
+            else:
+                return "Sorry, I'm having trouble connecting to my AI service. Please try again later."
+                
         except httpx.TimeoutException:
-            logger.error("Groq API timeout")
+            logger.error("Groq API timeout after 30 seconds")
             return "Sorry, my response took too long. Please try again."
         except Exception as e:
-            logger.error(f"Groq API error: {str(e)}")
-            return "Sorry, I encountered an error. Please try again later."
+            logger.error(f"Groq API error: {str(e)}", exc_info=True)
+            return f"Sorry, I encountered an error: {str(e)[:100]}"
     
 
 

@@ -91,3 +91,6 @@ DEPLOYMENT_CHOICE_EXPLAINED.md
 PRODUCTION_IMPROVEMENTS.md
 deploy-azure*.ps1
 deploy-azure*.sh
+deploy*.cmd
+continue*.cmd
+temp_reg_status.txt

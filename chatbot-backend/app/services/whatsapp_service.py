@@ -17,6 +17,18 @@ class WhatsAppService:
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json"
         }
+        
+        # Log initialization for debugging
+        logger.info(f"🔧 WhatsApp Service Initialized")
+        logger.info(f"   Phone Number ID: {self.phone_number_id}")
+        logger.info(f"   API Version: {self.api_version}")
+        logger.info(f"   Base URL: {self.base_url}")
+        logger.info(f"   Access Token: {self.access_token[:20]}... (length: {len(self.access_token)})")
+        
+        if not self.phone_number_id or not self.access_token:
+            logger.error("❌ WhatsApp credentials not configured properly!")
+            logger.error(f"   Phone Number ID: {self.phone_number_id}")
+            logger.error(f"   Access Token length: {len(self.access_token) if self.access_token else 0}")
     
     async def send_message(self, to_number: str, message: str) -> dict:
         """
@@ -31,9 +43,13 @@ class WhatsAppService:
         """
         try:
             # Clean phone number (remove whatsapp: prefix if present)
+            original_number = to_number
             to_number = to_number.replace("whatsapp:", "").replace("+", "").strip()
             
-            logger.info(f"Sending WhatsApp message to {to_number}")
+            logger.info(f"Sending WhatsApp message to {to_number} (original: {original_number})")
+            logger.info(f"Message content: {message[:100]}...")
+            logger.info(f"Using Phone Number ID: {self.phone_number_id}")
+            logger.info(f"API URL: {self.base_url}/messages")
             
             # Prepare the request payload
             payload = {
@@ -47,6 +63,8 @@ class WhatsAppService:
                 }
             }
             
+            logger.info(f"Request payload: {payload}")
+            
             # Send the request to Meta's API
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -56,24 +74,31 @@ class WhatsAppService:
                     timeout=30.0
                 )
                 
+                logger.info(f"WhatsApp API Response Status: {response.status_code}")
+                logger.info(f"WhatsApp API Response Body: {response.text}")
+                
                 response.raise_for_status()
                 result = response.json()
                 
-                logger.info(f"Message sent successfully. Message ID: {result.get('messages', [{}])[0].get('id', 'unknown')}")
+                message_id = result.get('messages', [{}])[0].get('id', 'unknown')
+                logger.info(f"✅ Message sent successfully! Message ID: {message_id}")
                 
                 return {
-                    "message_id": result.get("messages", [{}])[0].get("id"),
+                    "message_id": message_id,
                     "status": "sent",
                     "to": to_number,
                     "body": message
                 }
             
         except httpx.HTTPStatusError as e:
-            error_msg = f"HTTP error {e.response.status_code}: {e.response.text}"
-            logger.error(f"Failed to send WhatsApp message: {error_msg}")
+            error_detail = e.response.text
+            error_msg = f"HTTP error {e.response.status_code}: {error_detail}"
+            logger.error(f"❌ Failed to send WhatsApp message: {error_msg}")
+            logger.error(f"Request URL: {self.base_url}/messages")
+            logger.error(f"Request payload: {payload}")
             raise Exception(f"Failed to send message: {error_msg}")
         except Exception as e:
-            logger.error(f"Failed to send WhatsApp message: {str(e)}")
+            logger.error(f"❌ Failed to send WhatsApp message: {str(e)}", exc_info=True)
             raise Exception(f"Failed to send message: {str(e)}")
     
     async def mark_as_read(self, message_id: str) -> bool:

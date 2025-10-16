@@ -217,21 +217,22 @@ async def ai_chat(
     current_admin: dict = Depends(get_current_admin)
 ):
     """Admin can chat with AI directly without WhatsApp."""
-    from app.services.ai_service import AIService
+    from app.services.ai_service import ai_service
     
     try:
         message = request.get("message", "").strip()
         if not message:
             raise HTTPException(status_code=400, detail="Message cannot be empty")
         
-        # Get AI response
-        ai_service = AIService()
+        logger.info(f"Admin AI Chat - Received message: {message[:100]}...")
+        
+        # Get AI response using the global ai_service instance
         response = await ai_service.generate_response(
             message=message,
             conversation_history=[]
         )
         
-        logger.info(f"Admin AI Chat - Message: {message[:50]}... | Response: {response[:50]}...")
+        logger.info(f"Admin AI Chat - Generated response: {response[:100]}...")
         
         return {
             "status": "success",
@@ -240,7 +241,7 @@ async def ai_chat(
         }
         
     except Exception as e:
-        logger.error(f"Error in admin AI chat: {str(e)}")
+        logger.error(f"Error in admin AI chat: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get AI response: {str(e)}"

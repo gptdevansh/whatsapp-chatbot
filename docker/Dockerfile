@@ -18,8 +18,11 @@ COPY ../chatbot-backend/requirements.txt .
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy backend application code
 COPY ../chatbot-backend/ .
+
+# Copy frontend files
+COPY ../chatbot-frontend/ /app/frontend/
 
 # Create data directory for SQLite database
 RUN mkdir -p /app/data && \
