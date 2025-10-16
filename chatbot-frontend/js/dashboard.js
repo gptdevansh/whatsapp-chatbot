@@ -64,8 +64,17 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 function renderActivityChart(stats) {
-  // Use real backend data for last 7 days
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  // Generate last 7 days with actual dates
+  const days = [];
+  const today = new Date();
+  
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+    const dateNum = date.getDate();
+    days.push(`${dayName} ${dateNum}`);
+  }
   
   // Get actual totals from stats
   const totalMessages = stats.total_messages || 0;
