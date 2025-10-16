@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - WhatsApp Chatbot</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Toastify for notifications -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+  <!-- ApexCharts for beautiful charts (only 144KB gzipped!) -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div class="header-title">WhatsApp Chatbot Admin</div>
+    </header>
+    <nav class="navbar">
+      <a href="dashboard.html" class="active">Dashboard</a>
+      <a href="users.html">Users</a>
+      <a href="chats.html">Chats</a>
+      <a href="ai-chat.html">AI Chat</a>
+      <a href="#" id="logoutBtn">Logout</a>
+    </nav>
+    <main class="main-content">
+      <section class="stats-grid">
+        <div class="stat-card">
+          <h3>Total Users</h3>
+          <div id="totalUsers" class="stat-value">0</div>
+          <div class="stat-trend">Active users</div>
+        </div>
+        <div class="stat-card">
+          <h3>Total Messages</h3>
+          <div id="totalChats" class="stat-value">0</div>
+          <div class="stat-trend">All conversations</div>
+        </div>
+        <div class="stat-card">
+          <h3>Active (24h)</h3>
+          <div id="latestMessage" class="stat-value small">0</div>
+          <div class="stat-trend">Last 24 hours</div>
+        </div>
+      </section>
+      
+      <!-- Chart Container -->
+      <section class="card" style="margin-top: 2rem;">
+        <h3 style="margin-bottom: 1rem;">Activity Overview (Last 7 Days)</h3>
+        <div id="activityChart"></div>
+      </section>
+    </main>
+    <footer class="footer">&copy; 2025 WhatsApp Chatbot Admin. All rights reserved.</footer>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/common.js"></script>
+</body>
+</html>

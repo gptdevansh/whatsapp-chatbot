@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Users - WhatsApp Chatbot</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="css/users.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div class="header-title">WhatsApp Chatbot Admin</div>
+    </header>
+    <nav class="navbar">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="users.html" class="active">Users</a>
+      <a href="chats.html">Chats</a>
+      <a href="ai-chat.html">AI Chat</a>
+      <a href="#" id="logoutBtn">Logout</a>
+    </nav>
+    <main class="main-content">
+      <section class="table-section">
+        <div class="card">
+          <div class="users-header">
+            <h2>Registered Users</h2>
+            <input type="text" id="searchUsers" placeholder="Search users..." class="search-input">
+          </div>
+          <div class="table-responsive">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Total Chats</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr><td colspan="4" class="loading-cell">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <footer class="footer">&copy; 2025 WhatsApp Chatbot Admin. All rights reserved.</footer>
+  </div>
+  <script src="js/users.js?v=3"></script>
+  <script src="js/common.js?v=3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+</body>
+</html>

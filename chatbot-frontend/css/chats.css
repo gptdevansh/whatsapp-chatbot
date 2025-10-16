@@ -1,0 +1,11 @@
+/* Chats Page Styles */
+
+.chats-section {
+  width: 100%;
+}
+
+.loading-message {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-muted);
+}
