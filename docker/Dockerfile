@@ -24,9 +24,10 @@ COPY ../chatbot-backend/ .
 # Copy frontend files
 COPY ../chatbot-frontend/ /app/frontend/
 
-# Create data directory for SQLite database
-RUN mkdir -p /app/data && \
-    chmod 755 /app/data
+# Create data directory for SQLite database in Azure persistent storage
+# Azure mounts /home as persistent storage when WEBSITES_ENABLE_APP_SERVICE_STORAGE=true
+RUN mkdir -p /home/data && \
+    chmod -R 755 /home/data || true
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && \

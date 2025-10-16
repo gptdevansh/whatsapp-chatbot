@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     
     # Database
-    DATABASE_URL: str = "sqlite+aiosqlite:///./data/chatbot.db"
+    # Use /home for Azure persistent storage, fallback to ./data for local development
+    DATABASE_URL: str = "sqlite+aiosqlite:////home/data/chatbot.db"
     
     # Security
     SECRET_KEY: str
