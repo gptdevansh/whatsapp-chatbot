@@ -34,17 +34,19 @@ COPY ../chatbot-backend/ .
 # Copy frontend files to serve via FastAPI
 COPY ../chatbot-frontend/ /app/frontend/
 
-# Create data directory for SQLite database
+# Create data directory for SQLite database (local dev)
 # Azure persistent storage: /home directory persists when WEBSITES_ENABLE_APP_SERVICE_STORAGE=true
 # This ensures database survives container restarts and redeployments
-RUN mkdir -p /home/data && \
-    chmod -R 755 /home/data || true
+RUN mkdir -p /app/data && \
+    chmod -R 777 /app/data
 
 # Security: Run as non-root user
 # Creates 'appuser' with UID 1000 for better security practices
+# Note: Azure App Service needs write access to /home, so we keep root for Azure
+# Uncomment USER line for local development
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
-USER appuser
+# USER appuser
 
 # Expose application port
 EXPOSE 8000

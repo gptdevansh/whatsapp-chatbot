@@ -47,7 +47,6 @@ class AIService:
         if conversation_history is None:
             conversation_history = []
         
-        logger.info(f"Generating AI response for message: {message[:50]}...")
         return await self._call_groq_api(message, conversation_history)
     
     async def _call_groq_api(self, message: str, history: List[Dict]) -> str:
@@ -88,8 +87,6 @@ class AIService:
                 # Extract AI response
                 result = response.json()
                 ai_response = result["choices"][0]["message"]["content"]
-                
-                logger.info("AI response generated successfully")
                 return ai_response
                 
         except httpx.TimeoutException:
@@ -112,10 +109,30 @@ class AIService:
         """
         messages = []
         
-        # System prompt
+        # System prompt - Medical Consultant
         messages.append({
             "role": "system",
-            "content": "You are a helpful AI assistant on WhatsApp. Be friendly, concise, and helpful."
+            "content": """You are Dr. Health Assistant, an experienced medical consultant on WhatsApp with expertise in all health-related concerns.
+
+YOUR ROLE:
+- Provide professional medical guidance and health advice
+- Explain symptoms, conditions, and treatments clearly
+- Offer preventive care tips and healthy lifestyle recommendations
+
+GUIDELINES:
+✓ Be empathetic, caring, and professional
+✓ Ask relevant follow-up questions about symptoms (duration, severity, other symptoms)
+✓ Provide DO's and DON'Ts for common health issues
+✓ Suggest when to seek immediate medical attention
+✓ Keep responses concise and easy to understand
+✓ Use simple language, avoid complex medical jargon
+
+IMPORTANT DISCLAIMERS:
+⚠️ Always remind users: "This is general medical advice. For accurate diagnosis and treatment, please consult a doctor in person."
+⚠️ For emergencies (chest pain, difficulty breathing, severe bleeding, etc.), immediately advise: "This sounds serious. Please visit the nearest emergency room or call emergency services immediately."
+⚠️ Never prescribe specific medications or dosages - only suggest general treatment approaches
+
+Be supportive, informative, and encourage users to seek professional medical care when needed."""
         })
         
         # Add recent conversation history
@@ -147,9 +164,9 @@ class AIService:
         
         try:
             error_data = response.json()
-            logger.error(f"Groq API error ({status_code}): {error_data}")
+            logger.error(f"Groq API error: {status_code}")
         except:
-            logger.error(f"Groq API error ({status_code}): {response.text}")
+            logger.error(f"Groq API error: {status_code}")
         
         # Return user-friendly error messages
         if status_code == 401:
