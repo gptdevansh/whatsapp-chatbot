@@ -1,9 +1,14 @@
-// Users Page JS - Fetches and renders users table
+/**
+ * Users Page - User Management Interface
+ * 
+ * Displays all registered WhatsApp users with their conversation counts.
+ * Includes real-time search functionality for filtering users.
+ */
 
-let allUsers = []; // Store all users for search
+let allUsers = []; // Global user cache for search
 
 document.addEventListener('DOMContentLoaded', async function() {
-  // Auth check
+  // Verify authentication
   if (!localStorage.getItem('token')) {
     window.location.href = 'index.html';
     return;
@@ -12,71 +17,65 @@ document.addEventListener('DOMContentLoaded', async function() {
   const tbody = document.getElementById('usersTableBody');
   
   try {
+    // Fetch users from backend
     const res = await fetch('/api/v1/admin/users', {
       headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
     });
     
+    // Handle authentication errors
     if (!res.ok) {
       if (res.status === 401) {
         localStorage.removeItem('token');
         window.location.href = 'index.html';
         return;
       }
-      throw new Error('Failed to fetch');
+      throw new Error('Failed to fetch users');
     }
     
     const data = await res.json();
-    
     allUsers = data.users || data;
     
     renderUsers(allUsers);
-    
-    // Success toast
-    Toastify({
-      text: `Loaded ${allUsers.length} users`,
-      duration: 2000,
-      gravity: "top",
-      position: "right",
-      style: {
-        background: "linear-gradient(135deg, #25D366 0%, #128C7E 100%)",
-      }
-    }).showToast();
+    showToast(`Loaded ${allUsers.length} users`, "success");
     
   } catch (err) {
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:3rem;color:var(--error);">Error loading users. Please try again.</td></tr>';
-    
-    Toastify({
-      text: "Failed to load users",
-      duration: 3000,
-      gravity: "top",
-      position: "right",
-      style: {
-        background: "linear-gradient(135deg, #ff6b6b 0%, #c92a2a 100%)",
-      }
-    }).showToast();
+    showToast("Failed to load users", "error");
   }
 });
 
-// Search functionality
+/**
+ * Real-time search functionality
+ * Filters users by name, phone number, or ID
+ */
 document.getElementById('searchUsers').addEventListener('input', function(e) {
   const query = e.target.value.toLowerCase();
+  
   const filtered = allUsers.filter(user => 
     (user.name || '').toLowerCase().includes(query) ||
     (user.phone_number || '').toLowerCase().includes(query) ||
     String(user.id).includes(query)
   );
+  
   renderUsers(filtered);
 });
 
+/**
+ * Render users table
+ * 
+ * @param {Array} users - Array of user objects to display
+ */
 function renderUsers(users) {
   const tbody = document.getElementById('usersTableBody');
   tbody.innerHTML = '';
   
+  // Handle empty state
   if (users.length === 0) {
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:3rem;color:var(--text-muted);">No users found</td></tr>';
     return;
   }
   
+  // Render each user with staggered animation
   users.forEach((user, index) => {
     const tr = document.createElement('tr');
     tr.style.animationDelay = `${index * 0.05}s`;
@@ -89,5 +88,30 @@ function renderUsers(users) {
     `;
     tbody.appendChild(tr);
   });
+}
+
+/**
+ * Show toast notification
+ * 
+ * @param {string} message - Message to display
+ * @param {string} type - Toast type: success, error, warning, info
+ */
+function showToast(message, type = "info") {
+  const bgColors = {
+    error: "linear-gradient(135deg, #ff6b6b 0%, #c92a2a 100%)",
+    success: "linear-gradient(135deg, #25D366 0%, #128C7E 100%)",
+    warning: "linear-gradient(135deg, #ffa94d 0%, #f76707 100%)",
+    info: "linear-gradient(135deg, #339af0 0%, #1971c2 100%)"
+  };
+
+  Toastify({
+    text: message,
+    duration: 3000,
+    gravity: "top",
+    position: "right",
+    style: {
+      background: bgColors[type] || bgColors.info,
+    }
+  }).showToast();
 }
 

@@ -1,22 +1,33 @@
-// AI Chat JS - Admin can chat with AI directly
+/**
+ * AI Chat Page - Direct AI Testing Interface
+ * 
+ * Allows admins to chat directly with the AI without WhatsApp.
+ * Useful for testing AI responses and conversation quality.
+ */
 
-// Auth check
+// Verify authentication on page load
 if (!localStorage.getItem('token')) {
   window.location.href = 'index.html';
 }
 
+// DOM elements
 const chatMessages = document.getElementById('chatMessages');
 const messageInput = document.getElementById('messageInput');
 const sendButton = document.getElementById('sendButton');
 const typingIndicator = document.getElementById('typingIndicator');
 
-// Auto-resize textarea
+/**
+ * Auto-resize textarea as user types
+ */
 messageInput.addEventListener('input', function() {
   this.style.height = 'auto';
   this.style.height = (this.scrollHeight) + 'px';
 });
 
-// Handle Enter key (Shift+Enter for new line)
+/**
+ * Handle keyboard shortcuts
+ * Enter to send, Shift+Enter for new line
+ */
 function handleKeyPress(event) {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
@@ -24,22 +35,25 @@ function handleKeyPress(event) {
   }
 }
 
-// Send message to AI
+/**
+ * Send message to AI and display response
+ */
 async function sendMessage() {
   const message = messageInput.value.trim();
   
   if (!message) return;
   
-  // Add user message to chat
+  // Display user message immediately
   addMessage('user', message);
   messageInput.value = '';
   messageInput.style.height = 'auto';
   
-  // Disable send button
+  // Show loading state
   sendButton.disabled = true;
   typingIndicator.classList.add('active');
   
   try {
+    // Call AI chat endpoint
     const response = await fetch('/api/v1/admin/ai-chat', {
       method: 'POST',
       headers: {
@@ -49,6 +63,7 @@ async function sendMessage() {
       body: JSON.stringify({ message })
     });
     
+    // Handle authentication errors
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('token');
@@ -68,24 +83,20 @@ async function sendMessage() {
     
   } catch (error) {
     typingIndicator.classList.remove('active');
-    
-    Toastify({
-      text: "Failed to get AI response. Please try again.",
-      duration: 3000,
-      gravity: "top",
-      position: "right",
-      style: {
-        background: "linear-gradient(135deg, #ff6b6b 0%, #c92a2a 100%)",
-      }
-    }).showToast();
-    
+    showToast("Failed to get AI response. Please try again.", "error");
     addMessage('ai', 'Sorry, I encountered an error. Please try again.');
+    
   } finally {
     sendButton.disabled = false;
   }
 }
 
-// Add message to chat UI
+/**
+ * Add message to chat interface
+ * 
+ * @param {string} type - Message type: 'user' or 'ai'
+ * @param {string} content - Message text content
+ */
 function addMessage(type, content) {
   const messageDiv = document.createElement('div');
   messageDiv.className = `message ${type}`;
@@ -102,19 +113,21 @@ function addMessage(type, content) {
   `;
   
   chatMessages.appendChild(messageDiv);
-  
-  // Scroll to bottom - use multiple methods to ensure it works
   scrollToBottom();
 }
 
-// Scroll chat to bottom
+/**
+ * Smooth scroll to bottom of chat
+ */
 function scrollToBottom() {
   requestAnimationFrame(() => {
     chatMessages.scrollTop = chatMessages.scrollHeight;
   });
 }
 
-// Clear chat
+/**
+ * Clear all chat messages
+ */
 function clearChat() {
   if (confirm('Are you sure you want to clear all messages?')) {
     chatMessages.innerHTML = `
@@ -128,25 +141,46 @@ function clearChat() {
     `;
     
     scrollToBottom();
-    
-    Toastify({
-      text: "Chat cleared successfully",
-      duration: 2000,
-      gravity: "top",
-      position: "right",
-      style: {
-        background: "linear-gradient(135deg, #25D366 0%, #128C7E 100%)",
-      }
-    }).showToast();
+    showToast("Chat cleared successfully", "success");
   }
 }
 
-// Escape HTML to prevent XSS
+/**
+ * Escape HTML to prevent XSS attacks
+ * 
+ * @param {string} text - Text to escape
+ * @returns {string} HTML-safe text
+ */
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
-// Focus input on load
+/**
+ * Show toast notification
+ * 
+ * @param {string} message - Message to display
+ * @param {string} type - Toast type: success, error, warning, info
+ */
+function showToast(message, type = "info") {
+  const bgColors = {
+    error: "linear-gradient(135deg, #ff6b6b 0%, #c92a2a 100%)",
+    success: "linear-gradient(135deg, #25D366 0%, #128C7E 100%)",
+    warning: "linear-gradient(135deg, #ffa94d 0%, #f76707 100%)",
+    info: "linear-gradient(135deg, #339af0 0%, #1971c2 100%)"
+  };
+
+  Toastify({
+    text: message,
+    duration: 3000,
+    gravity: "top",
+    position: "right",
+    style: {
+      background: bgColors[type] || bgColors.info,
+    }
+  }).showToast();
+}
+
+// Focus input on page load
 messageInput.focus();

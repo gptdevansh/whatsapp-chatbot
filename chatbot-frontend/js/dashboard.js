@@ -1,7 +1,12 @@
-// Dashboard Page JS - Fetches stats and renders overview
+/**
+ * Dashboard Page - Overview Statistics and Activity Chart
+ * 
+ * Displays platform metrics including total users, messages, and active users.
+ * Renders interactive activity chart showing 7-day trends.
+ */
 
 document.addEventListener('DOMContentLoaded', async function() {
-  // Auth check
+  // Verify authentication
   if (!localStorage.getItem('token')) {
     window.location.href = 'index.html';
     return;
@@ -11,12 +16,13 @@ document.addEventListener('DOMContentLoaded', async function() {
   const totalChatsEl = document.getElementById('totalChats');
   const latestMessageEl = document.getElementById('latestMessage');
 
-  // Fetch stats from your backend
+  // Fetch platform statistics
   try {
     const res = await fetch('/api/v1/admin/stats', {
       headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
     });
     
+    // Handle authentication errors
     if (!res.ok) {
       if (res.status === 401) {
         localStorage.removeItem('token');
@@ -28,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     const stats = await res.json();
     
-    // Animate counter
+    // Animate stat counters with smooth incremental effect
     const animateCounter = (el, target) => {
       let current = 0;
       const increment = target / 30;
@@ -47,24 +53,22 @@ document.addEventListener('DOMContentLoaded', async function() {
     animateCounter(totalChatsEl, stats.total_messages || 0);
     latestMessageEl.textContent = `${stats.active_users_24h || 0} active in 24h`;
     
-    // Create beautiful chart with ApexCharts
+    // Render activity chart
     renderActivityChart(stats);
     
   } catch (err) {
-    Toastify({
-      text: "Error loading dashboard stats",
-      duration: 3000,
-      gravity: "top",
-      position: "right",
-      style: {
-        background: "linear-gradient(135deg, #ff6b6b 0%, #c92a2a 100%)",
-      }
-    }).showToast();
+    showToast("Error loading dashboard stats", "error");
   }
 });
 
+/**
+ * Render activity chart using ApexCharts
+ * 
+ * Creates a beautiful area chart showing message and user trends
+ * over the last 7 days with actual dates.
+ */
 function renderActivityChart(stats) {
-  // Generate last 7 days with actual dates
+  // Generate last 7 days with actual calendar dates
   const days = [];
   const today = new Date();
   
@@ -76,14 +80,14 @@ function renderActivityChart(stats) {
     days.push(`${dayName} ${dateNum}`);
   }
   
-  // Get actual totals from stats
+  // Prepare chart data
   const totalMessages = stats.total_messages || 0;
   const totalUsers = stats.total_users || 0;
   
-  // If no data yet, show empty chart
   const messages = totalMessages === 0 ? [0, 0, 0, 0, 0, 0, 0] : generateWeeklyData(totalMessages, 7);
   const users = totalUsers === 0 ? [0, 0, 0, 0, 0, 0, 0] : generateWeeklyData(totalUsers, 7);
   
+  // ApexCharts configuration
   const options = {
     series: [{
       name: 'Messages',
@@ -155,23 +159,48 @@ function renderActivityChart(stats) {
   chart.render();
 }
 
-// Helper function to generate realistic weekly distribution
+/**
+ * Generate weekly data distribution
+ * 
+ * Distributes total count randomly across days to simulate activity.
+ * In production, this would come from actual daily metrics.
+ */
 function generateWeeklyData(total, days) {
   if (total === 0) return new Array(days).fill(0);
   
-  // Generate random distribution that sums to total
   const data = [];
   let remaining = total;
   
+  // Distribute randomly across days
   for (let i = 0; i < days - 1; i++) {
-    // Random portion between 5% and 25% of remaining
     const portion = Math.floor(remaining * (0.05 + Math.random() * 0.20));
     data.push(portion);
     remaining -= portion;
   }
   
-  // Last day gets whatever remains
+  // Last day gets remaining count
   data.push(Math.max(0, remaining));
   
   return data;
+}
+
+/**
+ * Show toast notification
+ */
+function showToast(message, type = "info") {
+  const bgColors = {
+    error: "linear-gradient(135deg, #ff6b6b 0%, #c92a2a 100%)",
+    success: "linear-gradient(135deg, #51cf66 0%, #2f9e44 100%)",
+    info: "linear-gradient(135deg, #339af0 0%, #1971c2 100%)"
+  };
+
+  Toastify({
+    text: message,
+    duration: 3000,
+    gravity: "top",
+    position: "right",
+    style: {
+      background: bgColors[type] || bgColors.info,
+    }
+  }).showToast();
 }

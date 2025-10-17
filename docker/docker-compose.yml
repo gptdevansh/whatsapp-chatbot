@@ -1,32 +1,58 @@
+# Docker Compose Configuration for WhatsApp AI Chatbot
+# Version: 3.8 (latest stable compose format)
+
 services:
   backend:
+    # Build configuration
     build:
       context: ..
       dockerfile: docker/Dockerfile
+    
     container_name: whatsapp-chatbot-backend
+    
+    # Port mapping: host:container
     ports:
       - "8000:8000"
+    
+    # Volume mounts for persistence and development
     volumes:
+      # Database persistence - survives container restarts
       - ../chatbot-backend/data:/app/data
+      # Frontend files - allows hot reload in development
       - ../chatbot-frontend:/app/frontend
+    
+    # Environment variables from .env file
     env_file:
       - ../chatbot-backend/.env
+    
+    # Override database URL for local development
     environment:
       - DATABASE_URL=sqlite+aiosqlite:///./data/chatbot.db
+    
+    # Restart policy: always restart unless explicitly stopped
     restart: unless-stopped
+    
+    # Health check configuration
+    # Ensures container is healthy before routing traffic
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
+    
+    # Network configuration
     networks:
       - app-network
 
+# Networks
+# Bridge network for inter-container communication
 networks:
   app-network:
     driver: bridge
 
+# Named volumes
+# Ensures data persistence across container lifecycle
 volumes:
   data:
     driver: local

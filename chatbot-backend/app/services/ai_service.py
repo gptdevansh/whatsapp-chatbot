@@ -1,108 +1,164 @@
-"""AI service for generating responses."""
+"""
+AI conversation service using Groq's Llama 3.3 70B model.
+
+Provides intelligent chat responses with conversation history support.
+"""
 import httpx
 from typing import List, Dict, Optional
 from app.config import settings
 from app.utils.logger import logger
 
+# Constants
+DEFAULT_MODEL = "llama-3.3-70b-versatile"
+API_TIMEOUT = 30.0
+MAX_HISTORY_LENGTH = 10
+MAX_RESPONSE_TOKENS = 500
+
 
 class AIService:
-    """Service for interacting with AI models."""
+    """AI chatbot service powered by Groq."""
     
     def __init__(self):
+        """Initialize AI service with Groq API credentials."""
         self.groq_key = settings.GROQ_API_KEY
+        self.api_url = "https://api.groq.com/openai/v1/chat/completions"
+        
+        if not self.groq_key:
+            logger.error("Groq API key not configured")
+            raise ValueError("GROQ_API_KEY is required")
+        
+        logger.info("AI service initialized with Groq")
     
     async def generate_response(
         self, 
         message: str, 
         conversation_history: Optional[List[Dict[str, str]]] = None
     ) -> str:
-        """Generate AI response based on user message."""
+        """
+        Generate AI response with conversation context.
+        
+        Args:
+            message: User's input message
+            conversation_history: Previous conversation messages
+            
+        Returns:
+            str: AI-generated response text
+        """
         if conversation_history is None:
             conversation_history = []
         
-        logger.info(f"Generating AI response using Groq")
-        return await self._groq_call(message, conversation_history)
+        logger.info(f"Generating AI response for message: {message[:50]}...")
+        return await self._call_groq_api(message, conversation_history)
     
-    async def _groq_call(self, message: str, history: List[Dict]) -> str:
-        """Groq API implementation using Chat Completions (FREE tier with Llama 3.3 70B)."""
+    async def _call_groq_api(self, message: str, history: List[Dict]) -> str:
+        """
+        Call Groq Chat Completions API.
+        
+        Args:
+            message: Current user message
+            history: Previous conversation messages
+            
+        Returns:
+            str: Generated response or error message
+        """
         try:
-            # Validate API key
-            if not self.groq_key:
-                logger.error("GROQ_API_KEY is not set!")
-                return "Sorry, the AI service is not properly configured. Please check the API key."
+            # Build conversation messages
+            messages = self._build_messages(message, history)
             
-            # Prepare messages for OpenAI API
-            messages = []
-            
-            # Add system prompt first
-            messages.append({
-                "role": "system",
-                "content": "You are a helpful AI assistant on WhatsApp. Be friendly, concise, and helpful."
-            })
-            
-            # Add conversation history
-            for msg in history[-10:]:  # Keep last 10 messages for context
-                messages.append({
-                    "role": msg.get("role", "user"),
-                    "content": msg.get("content", "")
-                })
-            
-            # Add current message
-            messages.append({
-                "role": "user",
-                "content": message
-            })
-            
-            logger.info(f"Calling Groq API with {len(messages)} messages, model: llama-3.3-70b-versatile")
-            
-            # Make API call to Groq (OpenAI-compatible API, FREE tier)
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            # Prepare API request
+            async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
                 response = await client.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
+                    self.api_url,
                     headers={
                         "Authorization": f"Bearer {self.groq_key}",
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "llama-3.3-70b-versatile",  # Groq's latest Llama model (FREE!)
+                        "model": DEFAULT_MODEL,
                         "messages": messages,
                         "temperature": 0.7,
-                        "max_tokens": 500
+                        "max_tokens": MAX_RESPONSE_TOKENS
                     }
                 )
                 
-                response.raise_for_status()
+                # Handle API errors
+                if response.status_code != 200:
+                    return self._handle_api_error(response)
+                
+                # Extract AI response
                 result = response.json()
-                
                 ai_response = result["choices"][0]["message"]["content"]
-                logger.info(f"Groq API response received successfully: {ai_response[:100]}...")
                 
+                logger.info("AI response generated successfully")
                 return ai_response
                 
-        except httpx.HTTPStatusError as e:
-            error_detail = ""
-            try:
-                error_detail = e.response.json()
-                logger.error(f"Groq API HTTP error: {e.response.status_code} - {error_detail}")
-            except:
-                error_detail = e.response.text
-                logger.error(f"Groq API HTTP error: {e.response.status_code} - {error_detail}")
-            
-            if e.response.status_code == 401:
-                return "Sorry, the AI service authentication failed. Please check the API key configuration."
-            elif e.response.status_code == 429:
-                return "Sorry, the AI service is rate-limited. Please try again in a moment."
-            else:
-                return "Sorry, I'm having trouble connecting to my AI service. Please try again later."
-                
         except httpx.TimeoutException:
-            logger.error("Groq API timeout after 30 seconds")
+            logger.error(f"Groq API timeout after {API_TIMEOUT}s")
             return "Sorry, my response took too long. Please try again."
         except Exception as e:
-            logger.error(f"Groq API error: {str(e)}", exc_info=True)
-            return f"Sorry, I encountered an error: {str(e)[:100]}"
+            logger.error(f"AI service error: {str(e)}")
+            return "Sorry, I encountered an error. Please try again later."
     
+    def _build_messages(self, current_message: str, history: List[Dict]) -> List[Dict]:
+        """
+        Build conversation messages for API.
+        
+        Args:
+            current_message: Latest user message
+            history: Previous conversation history
+            
+        Returns:
+            list: Formatted messages for API
+        """
+        messages = []
+        
+        # System prompt
+        messages.append({
+            "role": "system",
+            "content": "You are a helpful AI assistant on WhatsApp. Be friendly, concise, and helpful."
+        })
+        
+        # Add recent conversation history
+        for msg in history[-MAX_HISTORY_LENGTH:]:
+            messages.append({
+                "role": msg.get("role", "user"),
+                "content": msg.get("content", "")
+            })
+        
+        # Add current message
+        messages.append({
+            "role": "user",
+            "content": current_message
+        })
+        
+        return messages
+    
+    def _handle_api_error(self, response: httpx.Response) -> str:
+        """
+        Handle Groq API error responses.
+        
+        Args:
+            response: HTTP response from API
+            
+        Returns:
+            str: User-friendly error message
+        """
+        status_code = response.status_code
+        
+        try:
+            error_data = response.json()
+            logger.error(f"Groq API error ({status_code}): {error_data}")
+        except:
+            logger.error(f"Groq API error ({status_code}): {response.text}")
+        
+        # Return user-friendly error messages
+        if status_code == 401:
+            return "Sorry, AI service authentication failed. Please contact support."
+        elif status_code == 429:
+            return "Sorry, too many requests. Please try again in a moment."
+        else:
+            return "Sorry, I'm having trouble connecting. Please try again later."
 
 
-
+# Global service instance
 ai_service = AIService()
