@@ -26,8 +26,9 @@ class UserResponse(UserBase):
     User response schema with additional metadata.
     
     Includes total chat count for dashboard display.
+    MongoDB ID is returned as string.
     """
-    id: int
+    id: str  # MongoDB ObjectId as string
     is_active: bool
     created_at: datetime
     total_chats: int = 0
@@ -48,15 +49,16 @@ class MessageCreate(MessageBase):
     Schema for creating new messages.
     
     Includes Meta's message ID for tracking WhatsApp messages.
+    MongoDB references user_id as string.
     """
-    user_id: int
+    user_id: str  # MongoDB ObjectId as string
     meta_message_id: Optional[str] = None
 
 
 class MessageResponse(MessageBase):
-    """Message response schema with metadata."""
-    id: int
-    user_id: int
+    """Message response schema with metadata. MongoDB IDs as strings."""
+    id: str  # MongoDB ObjectId as string
+    user_id: str  # MongoDB ObjectId as string
     created_at: datetime
     
     class Config:

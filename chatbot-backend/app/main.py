@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 import os
 
 from app.config import settings
-from app.database import init_db
+from app.database import connect_db, close_db
 from app.routers import whatsapp  # type: ignore
 from app.routers import admin  # type: ignore
 from app.utils.logger import logger
@@ -22,13 +22,14 @@ async def lifespan(app: FastAPI):
     """Lifespan event handler."""
     # Startup
     logger.info("Starting application...")
-    await init_db()
-    logger.info("Database initialized")
+    await connect_db()
+    logger.info("MongoDB/Cosmos DB initialized")
     
     yield
     
     # Shutdown
     logger.info("Shutting down application...")
+    await close_db()
 
 
 # Create FastAPI app

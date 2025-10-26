@@ -20,19 +20,14 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "production"  # production, development, staging
     
     # ==================== Database Settings ====================
-    DATABASE_URL: str = "sqlite+aiosqlite:////home/data/chatbot.db"
+    # MongoDB/Cosmos DB Connection
+    MONGODB_URL: str = "mongodb://localhost:27017"  # Default for local Docker
+    MONGODB_DATABASE: str = "whatsapp_chatbot"
     
     @property
     def is_production(self) -> bool:
         """Check if running in production environment."""
         return self.ENVIRONMENT.lower() == "production"
-    
-    @property
-    def database_path(self) -> str:
-        """Get appropriate database path based on environment."""
-        if self.is_production or os.path.exists("/home/data"):
-            return "sqlite+aiosqlite:////home/data/chatbot.db"
-        return "sqlite+aiosqlite:///./data/chatbot.db"
     
     # ==================== Security Settings ====================
     SECRET_KEY: str

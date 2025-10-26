@@ -1,15 +1,12 @@
 """
 WhatsApp webhook router for Meta WhatsApp Business API.
 
-Handles webhook verification and incoming message processing.
+Handles webhook verification and incoming message processing with MongoDB.
 """
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Request
 from fastapi.responses import PlainTextResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
 from typing import Optional, Dict, Any
 
-from app.database import get_session
 from app.models import User, Message, MessageRole
 from app.services.ai_service import ai_service
 from app.services.whatsapp_service import whatsapp_service
@@ -44,13 +41,8 @@ async def whatsapp_webhook_verify(request: Request):
     return PlainTextResponse(content="Invalid token", status_code=403)
 
 
-
-
 @router.post("/whatsapp")
-async def whatsapp_webhook(
-    request: Request,
-    session: AsyncSession = Depends(get_session)
-):
+async def whatsapp_webhook(request: Request):
     """
     Process incoming WhatsApp messages from Meta.
     
@@ -77,7 +69,7 @@ async def whatsapp_webhook(
             return {"status": "ok"}
         
         # Process all message entries
-        await process_webhook_entries(body, session)
+        await process_webhook_entries(body)
         
         return {"status": "success"}
         
@@ -87,13 +79,12 @@ async def whatsapp_webhook(
         return {"status": "error", "message": str(e)}
 
 
-async def process_webhook_entries(body: Dict[str, Any], session: AsyncSession):
+async def process_webhook_entries(body: Dict[str, Any]):
     """
     Process all entries in a webhook payload.
     
     Args:
         body: Webhook payload from Meta
-        session: Database session
     """
     for entry in body.get("entry", []):
         for change in entry.get("changes", []):
@@ -109,21 +100,16 @@ async def process_webhook_entries(body: Dict[str, Any], session: AsyncSession):
             
             # Process each message
             for message_data in messages:
-                await process_message(message_data, contacts, session)
+                await process_message(message_data, contacts)
 
 
-async def process_message(
-    message_data: Dict[str, Any],
-    contacts: list,
-    session: AsyncSession
-):
+async def process_message(message_data: Dict[str, Any], contacts: list):
     """
     Process a single incoming message.
     
     Args:
         message_data: Message data from webhook
         contacts: Contact information from webhook
-        session: Database session
     """
     # Extract message details
     message_id = message_data.get("id")
@@ -149,36 +135,33 @@ async def process_message(
     logger.info(f"Processing message from {sender_phone[-4:]}****")
     
     # Get or create user
-    user = await get_or_create_user(session, sender_phone, sender_name)
+    user = await get_or_create_user(sender_phone, sender_name)
     
     # Save incoming message
     user_message = Message(
-        user_id=user.id,
+        user_id=str(user.id),
         role=MessageRole.USER,
         content=message_text,
         meta_message_id=message_id
     )
-    session.add(user_message)
-    await session.commit()
-    await session.refresh(user_message)
+    await user_message.insert()
     
     # Mark as read
     await whatsapp_service.mark_as_read(message_id)
     
     # Get conversation context
-    conversation_history = await get_conversation_history(session, user.id, limit=10)
+    conversation_history = await get_conversation_history(str(user.id), limit=10)
     
     # Generate AI response
     ai_response = await ai_service.generate_response(message_text, conversation_history)
     
     # Save AI response
     assistant_message = Message(
-        user_id=user.id,
+        user_id=str(user.id),
         role=MessageRole.ASSISTANT,
         content=ai_response
     )
-    session.add(assistant_message)
-    await session.commit()
+    await assistant_message.insert()
     
     # Send response to user
     try:
@@ -189,16 +172,11 @@ async def process_message(
         # Don't raise - message is already saved
 
 
-async def get_or_create_user(
-    session: AsyncSession, 
-    phone_number: str, 
-    name: Optional[str] = None
-) -> User:
+async def get_or_create_user(phone_number: str, name: Optional[str] = None) -> User:
     """
     Retrieve existing user or create new one.
     
     Args:
-        session: Database session
         phone_number: User's phone number
         name: Optional user display name
         
@@ -206,52 +184,37 @@ async def get_or_create_user(
         User: User database object
     """
     # Check if user exists
-    result = await session.execute(
-        select(User).where(User.phone_number == phone_number)
-    )
-    user = result.scalar_one_or_none()
+    user = await User.find_one(User.phone_number == phone_number)
     
     if user:
         # Update name if provided and changed
         if name and user.name != name:
             user.name = name
-            await session.commit()
-            await session.refresh(user)
+            await user.save()
         return user
     
     # Create new user
     user = User(phone_number=phone_number, name=name)
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
+    await user.insert()
     
     logger.info(f"New user created: {phone_number[-4:]}**** (ID: {user.id})")
     return user
 
 
-async def get_conversation_history(
-    session: AsyncSession, 
-    user_id: int, 
-    limit: int = 10
-) -> list[dict]:
+async def get_conversation_history(user_id: str, limit: int = 10) -> list[dict]:
     """
     Retrieve recent conversation history for AI context.
     
     Args:
-        session: Database session
-        user_id: User identifier
+        user_id: User identifier (ObjectId as string)
         limit: Maximum number of messages to retrieve
         
     Returns:
         list: Conversation messages in chronological order
     """
-    result = await session.execute(
-        select(Message)
-        .where(Message.user_id == user_id)
-        .order_by(desc(Message.created_at))
-        .limit(limit)
-    )
-    messages = result.scalars().all()
+    messages = await Message.find(
+        Message.user_id == user_id
+    ).sort(-Message.created_at).limit(limit).to_list()
     
     # Convert to chronological order and format for AI
     history = [

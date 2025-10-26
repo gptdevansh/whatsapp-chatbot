@@ -2,6 +2,35 @@
 # Version: 3.8 (latest stable compose format)
 
 services:
+  # MongoDB Database Service
+  mongodb:
+    image: mongo:7.0
+    container_name: whatsapp-chatbot-mongodb
+    
+    # Port mapping: host:container
+    ports:
+      - "27017:27017"
+    
+    # Volume for data persistence
+    volumes:
+      - mongodb_data:/data/db
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Health check for MongoDB
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Network configuration
+    networks:
+      - app-network
+
+  # Backend API Service
   backend:
     # Build configuration
     build:
@@ -16,8 +45,6 @@ services:
     
     # Volume mounts for persistence and development
     volumes:
-      # Database persistence - survives container restarts
-      - ../chatbot-backend/data:/app/data
       # Frontend files - allows hot reload in development
       - ../chatbot-frontend:/app/frontend
     
@@ -25,9 +52,15 @@ services:
     env_file:
       - ../chatbot-backend/.env
     
-    # Override database URL for local development
+    # Override MongoDB URL for Docker environment
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:///./data/chatbot.db
+      - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_DATABASE=whatsapp_chatbot
+    
+    # Depends on MongoDB being healthy
+    depends_on:
+      mongodb:
+        condition: service_healthy
     
     # Restart policy: always restart unless explicitly stopped
     restart: unless-stopped
@@ -54,5 +87,5 @@ networks:
 # Named volumes
 # Ensures data persistence across container lifecycle
 volumes:
-  data:
+  mongodb_data:
     driver: local

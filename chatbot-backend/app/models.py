@@ -1,10 +1,11 @@
 """
 Database models for WhatsApp chatbot.
 
-Defines SQLModel entities for users and conversation messages.
+MongoDB/Cosmos DB models using Pydantic and Beanie ODM.
 """
-from sqlmodel import SQLModel, Field, Relationship
-from typing import Optional, List
+from beanie import Document
+from pydantic import Field
+from typing import Optional
 from datetime import datetime
 from enum import Enum
 
@@ -19,62 +20,59 @@ class MessageRole(str, Enum):
     ASSISTANT = "assistant"
 
 
-class User(SQLModel, table=True):
+class User(Document):
     """
-    WhatsApp user entity.
+    WhatsApp user entity stored in MongoDB/Cosmos DB.
     
-    Stores user profile information and links to conversation history.
+    Stores user profile information. Messages are linked via user_id reference.
     Each user is uniquely identified by their phone number.
     
     Attributes:
-        id: Unique user identifier (auto-generated)
         phone_number: WhatsApp phone number (unique, indexed)
         name: Display name from WhatsApp profile (optional)
         is_active: Whether user account is active
         created_at: Account creation timestamp
         updated_at: Last profile update timestamp
-        messages: All messages associated with this user
     """
-    __tablename__: str = "users"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
-    phone_number: str = Field(unique=True, index=True)
-    name: Optional[str] = Field(default=None)
-    is_active: bool = Field(default=True)
+    phone_number: str = Field(..., unique=True)
+    name: Optional[str] = None
+    is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
-    # Relationships
-    messages: List["Message"] = Relationship(back_populates="user")
+    class Settings:
+        name = "users"
+        indexes = [
+            "phone_number",
+        ]
 
 
-class Message(SQLModel, table=True):
+class Message(Document):
     """
-    Conversation message entity.
+    Conversation message entity stored in MongoDB/Cosmos DB.
     
     Stores individual messages in chat conversations, including both
     user inputs and AI-generated responses.
     
     Attributes:
-        id: Unique message identifier (auto-generated)
-        user_id: Reference to the user who owns this conversation
+        user_id: Reference to the user document ID (ObjectId as string)
         role: Whether message is from user or AI assistant
         content: The actual message text
         meta_message_id: WhatsApp's internal message ID (for user messages)
         created_at: Message timestamp (indexed for sorting)
-        user: Associated user object
     """
-    __tablename__: str = "messages"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id", index=True)
-    role: MessageRole = Field(description="Message sender: user or assistant")
-    content: str = Field(description="Message content/text")
+    user_id: str = Field(..., description="User document ID reference")
+    role: MessageRole = Field(..., description="Message sender: user or assistant")
+    content: str = Field(..., description="Message content/text")
     meta_message_id: Optional[str] = Field(
         default=None, 
         description="WhatsApp's message ID from Meta API"
     )
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     
-    # Relationships
-    user: Optional[User] = Relationship(back_populates="messages")
+    class Settings:
+        name = "messages"
+        indexes = [
+            "user_id",
+            "created_at",
+        ]

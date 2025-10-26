@@ -1,102 +1,33 @@
 """
-Admin API router with JWT authentication.
+Admin API router for dashboard and analytics.
 
-Provides authenticated endpoints for user management, conversation viewing,
-statistics, and direct AI chat testing.
+Provides authenticated endpoints for user management and statistics with MongoDB.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, asc, desc
-from jose import JWTError, jwt
-from passlib.context import CryptContext
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import List
 
-from app.database import get_session
+from app.config import settings
 from app.models import User, Message
 from app.schemas import (
-    LoginRequest, 
-    TokenResponse, 
-    ConversationResponse,
-    ConversationListResponse,
-    UserResponse,
-    MessageResponse
+    LoginRequest, TokenResponse, UserResponse,
+    ConversationListResponse, MessageResponse, ConversationResponse
 )
-from app.config import settings
+from app.utils.auth import create_access_token, get_current_admin
 from app.utils.logger import logger
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
-# Security configuration
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-security = HTTPBearer()
-
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """
-    Generate JWT access token.
-    
-    Args:
-        data: Payload data to encode in token
-        expires_delta: Optional custom expiration time
-        
-    Returns:
-        str: Encoded JWT token
-    """
-    to_encode = data.copy()
-    
-    expire = datetime.utcnow() + (
-        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
-    
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-
-
-async def get_current_admin(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-) -> dict:
-    """
-    Verify JWT token and extract admin identity.
-    
-    Args:
-        credentials: Bearer token from request header
-        
-    Returns:
-        dict: Admin user information
-        
-    Raises:
-        HTTPException: If token is invalid or expired
-    """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid authentication credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    
-    try:
-        token = credentials.credentials
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username = payload.get("sub")
-        
-        if not username or not isinstance(username, str):
-            raise credentials_exception
-            
-        return {"username": username}
-        
-    except JWTError:
-        raise credentials_exception
-
 
 @router.post("/login", response_model=TokenResponse)
-async def login(request: LoginRequest):
+async def admin_login(request: LoginRequest):
     """
     Admin authentication endpoint.
     
-    Validates credentials and returns JWT access token.
+    Validates credentials against configured admin username/password.
+    Returns JWT token on successful authentication.
     """
-    if (request.username != settings.ADMIN_USERNAME or 
+    if (request.username != settings.ADMIN_USERNAME or
         request.password != settings.ADMIN_PASSWORD):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -113,7 +44,6 @@ async def login(request: LoginRequest):
 async def list_users(
     skip: int = 0,
     limit: int = 50,
-    session: AsyncSession = Depends(get_session),
     current_admin: dict = Depends(get_current_admin)
 ):
     """
@@ -123,28 +53,18 @@ async def list_users(
     Requires admin authentication.
     """
     # Get total user count
-    count_result = await session.execute(select(func.count(User.id)))
-    total = count_result.scalar() or 0
+    total = await User.count()
     
     # Fetch users with pagination
-    result = await session.execute(
-        select(User)
-        .order_by(desc(User.created_at))
-        .offset(skip)
-        .limit(limit)
-    )
-    users = result.scalars().all()
+    users = await User.find_all().sort(-User.created_at).skip(skip).limit(limit).to_list()
     
     # Enrich with message counts
     user_responses = []
     for user in users:
-        msg_count_result = await session.execute(
-            select(func.count(Message.id)).where(Message.user_id == user.id)
-        )
-        msg_count = msg_count_result.scalar() or 0
+        msg_count = await Message.find(Message.user_id == str(user.id)).count()
         
         user_dict = {
-            "id": user.id,
+            "id": str(user.id),
             "phone_number": user.phone_number,
             "name": user.name,
             "is_active": user.is_active,
@@ -158,9 +78,8 @@ async def list_users(
 
 @router.get("/conversation/{user_id}", response_model=ConversationResponse)
 async def get_user_conversation(
-    user_id: int,
+    user_id: str,
     limit: int = 100,
-    session: AsyncSession = Depends(get_session),
     current_admin: dict = Depends(get_current_admin)
 ):
     """
@@ -170,35 +89,45 @@ async def get_user_conversation(
     Requires admin authentication.
     """
     # Verify user exists
-    user_result = await session.execute(
-        select(User).where(User.id == user_id)
-    )
-    user = user_result.scalar_one_or_none()
+    user = await User.get(user_id)
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
     # Fetch conversation messages
-    messages_result = await session.execute(
-        select(Message)
-        .where(Message.user_id == user_id)
-        .order_by(asc(Message.created_at))
-        .limit(limit)
+    messages = await Message.find(
+        Message.user_id == user_id
+    ).sort(+Message.created_at).limit(limit).to_list()
+    
+    user_response = UserResponse(
+        id=str(user.id),
+        phone_number=user.phone_number,
+        name=user.name,
+        is_active=user.is_active,
+        created_at=user.created_at,
+        total_chats=len(messages)
     )
-    messages = messages_result.scalars().all()
+    
+    message_responses = [
+        MessageResponse(
+            id=str(msg.id),
+            user_id=msg.user_id,
+            role=msg.role,
+            content=msg.content,
+            created_at=msg.created_at
+        )
+        for msg in messages
+    ]
     
     return ConversationResponse(
-        user=UserResponse.model_validate(user),
-        messages=[MessageResponse.model_validate(msg) for msg in messages],
+        user=user_response,
+        messages=message_responses,
         total_messages=len(messages)
     )
 
 
 @router.get("/stats")
-async def get_stats(
-    session: AsyncSession = Depends(get_session),
-    current_admin: dict = Depends(get_current_admin)
-):
+async def get_stats(current_admin: dict = Depends(get_current_admin)):
     """
     Get platform statistics and metrics.
     
@@ -206,20 +135,19 @@ async def get_stats(
     Requires admin authentication.
     """
     # Total users
-    users_count = await session.execute(select(func.count(User.id)))
-    total_users = users_count.scalar()
+    total_users = await User.count()
     
     # Total messages
-    messages_count = await session.execute(select(func.count(Message.id)))
-    total_messages = messages_count.scalar()
+    total_messages = await Message.count()
     
     # Active users in last 24 hours
     yesterday = datetime.utcnow() - timedelta(days=1)
-    active_users = await session.execute(
-        select(func.count(func.distinct(Message.user_id)))
-        .where(Message.created_at >= yesterday)
-    )
-    active_count = active_users.scalar()
+    recent_messages = await Message.find(
+        Message.created_at >= yesterday
+    ).to_list()
+    
+    active_user_ids = set(msg.user_id for msg in recent_messages)
+    active_count = len(active_user_ids)
     
     return {
         "total_users": total_users,
@@ -232,7 +160,6 @@ async def get_stats(
 @router.get("/chats/latest")
 async def get_latest_chats(
     limit: int = 20,
-    session: AsyncSession = Depends(get_session),
     current_admin: dict = Depends(get_current_admin)
 ):
     """
@@ -241,23 +168,21 @@ async def get_latest_chats(
     Returns latest messages with user information.
     Requires admin authentication.
     """
-    result = await session.execute(
-        select(Message, User)
-        .join(User, Message.user_id == User.id)
-        .order_by(desc(Message.created_at))
-        .limit(limit)
-    )
-    rows = result.all()
+    # Get latest messages
+    messages = await Message.find_all().sort(-Message.created_at).limit(limit).to_list()
     
     chats = []
-    for message, user in rows:
-        chats.append({
-            "user_name": user.name or user.phone_number,
-            "phone_number": user.phone_number,
-            "role": message.role.value,
-            "message": message.content,
-            "timestamp": message.created_at.isoformat()
-        })
+    for message in messages:
+        # Get user for each message
+        user = await User.get(message.user_id)
+        if user:
+            chats.append({
+                "user_name": user.name or user.phone_number,
+                "phone_number": user.phone_number,
+                "role": message.role.value,
+                "message": message.content,
+                "timestamp": message.created_at.isoformat()
+            })
     
     return chats
 

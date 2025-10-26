@@ -1,38 +1,52 @@
-"""Database configuration and session management."""
-from sqlmodel import SQLModel, create_engine
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from typing import AsyncGenerator
+"""MongoDB/Cosmos DB configuration and connection management."""
+from motor.motor_asyncio import AsyncIOMotorClient
+from beanie import init_beanie
+from typing import Optional
 
 from app.config import settings
+from app.models import User, Message
 
 
-# Create async engine for SQLite
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    future=True,
-    connect_args={"check_same_thread": False}
-)
-
-# Async session factory
-async_session_maker = async_sessionmaker(
-    engine, 
-    class_=AsyncSession, 
-    expire_on_commit=False
-)
+# MongoDB client
+mongodb_client: Optional[AsyncIOMotorClient] = None
 
 
-async def init_db():
-    """Initialize database tables."""
-    async with engine.begin() as conn:
-        from app.models import User, Message
-        await conn.run_sync(SQLModel.metadata.create_all)
+async def connect_db():
+    """Initialize MongoDB/Cosmos DB connection and Beanie ODM."""
+    global mongodb_client
+    
+    # Create MongoDB client (works with Cosmos DB MongoDB API)
+    mongodb_client = AsyncIOMotorClient(
+        settings.MONGODB_URL,
+        serverSelectionTimeoutMS=5000,
+        connectTimeoutMS=10000,
+    )
+    
+    # Get database
+    database = mongodb_client[settings.MONGODB_DATABASE]
+    
+    # Initialize Beanie with document models
+    await init_beanie(
+        database=database,
+        document_models=[User, Message]
+    )
+    
+    print(f"✅ Connected to MongoDB: {settings.MONGODB_DATABASE}")
 
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency function to get database session."""
-    async with async_session_maker() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+async def close_db():
+    """Close MongoDB connection."""
+    global mongodb_client
+    if mongodb_client:
+        mongodb_client.close()
+        print("✅ MongoDB connection closed")
+
+
+# Compatibility function for dependency injection
+async def get_db():
+    """
+    Dependency function for database access.
+    With Beanie, we don't need to pass sessions - models work directly.
+    This is kept for compatibility but doesn't yield anything.
+    """
+    yield None  # Beanie handles connections internally
