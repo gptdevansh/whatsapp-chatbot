@@ -36,8 +36,8 @@ ADMIN_PASSWORD=your_password
 # Security
 SECRET_KEY=your_32_character_secret
 
-# Database - MongoDB Atlas (free tier)
-MONGODB_URL=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
+# Database - Azure Cosmos DB for MongoDB (Free Tier)
+MONGODB_URL=mongodb://your-account:your-key@your-account.mongo.cosmos.azure.com:10255/?ssl=true&replicaSet=globaldb&retrywrites=false&maxIdleTimeMS=120000&appName=@your-account@
 MONGODB_DATABASE=whatsapp_chatbot
 ```
 
@@ -64,7 +64,7 @@ docker-compose up -d
 
 ## Tech Stack
 
-FastAPI • Python 3.11 • Groq AI (Llama 3.3 70B) • WhatsApp Business API • MongoDB Atlas • Docker
+FastAPI • Python 3.11 • Groq AI (Llama 3.3 70B) • WhatsApp Business API • Azure Cosmos DB • Docker
 
 ## Deployment
 
@@ -78,7 +78,7 @@ docker run -p 8000:8000 --env-file .env whatsapp-chatbot
 - Configure environment variables in cloud platform
 - Set webhook URL: `https://your-domain.com/api/v1/webhook/whatsapp`
 - Ensure HTTPS enabled
-- Connect to MongoDB Atlas for cloud database
+- Use Azure Cosmos DB for MongoDB (Free Tier: 1000 RU/s + 25GB)
 
 ## Project Structure
 
