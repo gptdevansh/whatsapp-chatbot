@@ -35,7 +35,10 @@ ADMIN_PASSWORD=your_password
 
 # Security
 SECRET_KEY=your_32_character_secret
-DATABASE_URL=sqlite+aiosqlite:///./data/chatbot.db
+
+# Database - MongoDB Atlas (free tier)
+MONGODB_URL=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DATABASE=whatsapp_chatbot
 ```
 
 ### 3. Run Locally
@@ -61,7 +64,7 @@ docker-compose up -d
 
 ## Tech Stack
 
-FastAPI • Python 3.11 • Groq AI (Llama 3.3 70B) • WhatsApp Business API • SQLite • Docker
+FastAPI • Python 3.11 • Groq AI (Llama 3.3 70B) • WhatsApp Business API • MongoDB Atlas • Docker
 
 ## Deployment
 
@@ -74,7 +77,8 @@ docker run -p 8000:8000 --env-file .env whatsapp-chatbot
 **Production (Azure/AWS/GCP):**
 - Configure environment variables in cloud platform
 - Set webhook URL: `https://your-domain.com/api/v1/webhook/whatsapp`
-- Ensure HTTPS and persistent storage for database
+- Ensure HTTPS enabled
+- Connect to MongoDB Atlas for cloud database
 
 ## Project Structure
 

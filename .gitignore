@@ -69,10 +69,18 @@ docker-compose.override.yml
 
 # Logs
 logs/
+logs2/
+fresh-logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Log archives
+*.zip
+app-logs.zip
+latest-logs.zip
+fresh-logs.zip
 
 # OS
 Thumbs.db
@@ -84,6 +92,8 @@ Thumbs.db
 *.bak
 *.backup
 *~
+test_*.py
+update-*.ps1
 
 # Documentation (deployment specific)
 AZURE_DEPLOYMENT.md
