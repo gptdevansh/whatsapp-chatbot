@@ -55,8 +55,8 @@ async def list_users(
     # Get total user count
     total = await User.count()
     
-    # Fetch users with pagination
-    users = await User.find_all().sort(-User.created_at).skip(skip).limit(limit).to_list()
+    # Fetch users with pagination (Cosmos DB compatible - no sort for now)
+    users = await User.find_all().skip(skip).limit(limit).to_list()
     
     # Enrich with message counts
     user_responses = []
@@ -94,10 +94,10 @@ async def get_user_conversation(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Fetch conversation messages
+    # Fetch conversation messages (Cosmos DB compatible - no sort for now)
     messages = await Message.find(
         Message.user_id == user_id
-    ).sort(+Message.created_at).limit(limit).to_list()
+    ).limit(limit).to_list()
     
     user_response = UserResponse(
         id=str(user.id),
@@ -168,8 +168,8 @@ async def get_latest_chats(
     Returns latest messages with user information.
     Requires admin authentication.
     """
-    # Get latest messages
-    messages = await Message.find_all().sort(-Message.created_at).limit(limit).to_list()
+    # Get latest messages (Cosmos DB compatible - no sort for now)
+    messages = await Message.find_all().limit(limit).to_list()
     
     chats = []
     for message in messages:

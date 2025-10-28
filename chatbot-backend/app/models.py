@@ -44,6 +44,7 @@ class User(Document):
         name = "users"
         indexes = [
             "phone_number",
+            "created_at",  # Index for sorting in admin panel
         ]
 
 

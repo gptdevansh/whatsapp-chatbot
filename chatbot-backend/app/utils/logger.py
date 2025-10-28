@@ -32,4 +32,4 @@ def setup_logger(name: str = __name__) -> logging.Logger:
     return logger
 
 
-logger = setup_logger("whatsapp_ai_assistant")
+logger = setup_logger("whatsapp_chatbot")

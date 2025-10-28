@@ -54,8 +54,7 @@ app.add_middleware(
 app.include_router(whatsapp.router)
 app.include_router(admin.router, prefix=settings.API_V1_PREFIX)
 
-# Serve frontend static files at /frontend
-# Frontend is mounted at /app/frontend in Docker (see docker-compose.yml)
+# Serve frontend static files
 frontend_path = os.path.abspath("/app/frontend")
 if not os.path.exists(frontend_path):
     # Fallback for local development
